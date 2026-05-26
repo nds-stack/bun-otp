@@ -1,76 +1,71 @@
 import { describe } from 'bun:test';
 import { hotp, totp, generateSecret, base32Encode, base32Decode } from '../src/index.ts';
 
-const secret = generateSecret();
+const secret = generateSecret(20);
 const baselineKey = new Uint8Array(20);
 crypto.getRandomValues(baselineKey);
 const baselineData = new Uint8Array(8);
 
-async function run(label: string, fn: () => Promise<unknown> | unknown, iterations = 1000) {
-  const start = performance.now();
-  for (let i = 0; i < iterations; i++) await fn();
-  const elapsed = performance.now() - start;
-  const opsPerSec = Math.round(iterations / (elapsed / 1000));
-  console.log(`  ${label.padEnd(55)} ${opsPerSec.toLocaleString().padStart(12)} ops/s`);
-}
+async function measure(label: string, fn: () => unknown, iterations = 1000) {
+  const ret = fn();
+  const isAsync = ret instanceof Promise;
 
-async function competitorTotp(label: string, gen: () => string) {
-  const start = performance.now();
-  for (let i = 0; i < 500; i++) gen();
-  const elapsed = performance.now() - start;
-  const opsPerSec = Math.round(500 / (elapsed / 1000));
-  console.log(`  ${label.padEnd(55)} ${opsPerSec.toLocaleString().padStart(12)} ops/s`);
+  if (isAsync) {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) await (fn as () => Promise<unknown>)();
+    const ops = Math.round(iterations / ((performance.now() - start) / 1000));
+    console.log(`  ${label.padEnd(50)} ${ops.toLocaleString().padStart(10)} ops/s`);
+  } else {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) (fn as () => void)();
+    const ops = Math.round(iterations / ((performance.now() - start) / 1000));
+    console.log(`  ${label.padEnd(50)} ${ops.toLocaleString().padStart(10)} ops/s`);
+  }
 }
 
 describe('OTP Benchmarks', async () => {
-  console.log(`\nBenchmark: @nds-stack/bun-otp vs competitors (500-1000 iterations each)\n`);
-  console.log('='.repeat(72));
+  console.log(`\nBenchmark: @nds-stack/bun-otp vs competitors\n`);
+  console.log('='.repeat(65));
 
-  // Baseline
-  await run('baseline: crypto.subtle.sign (SHA1)', async () => {
-    const k = await crypto.subtle.importKey('raw', baselineKey, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
-    await crypto.subtle.sign('HMAC', k, baselineData);
-  });
+  const hmacKey = await crypto.subtle.importKey('raw', baselineKey, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  await measure('baseline: crypto.subtle.sign', () => crypto.subtle.sign('HMAC', hmacKey, baselineData), 200);
 
-  // TOTP
-  await run('bun-otp: totp() 6-digit SHA1', () => totp({ secret, timestamp: 50000 }));
-  await run('bun-otp: totp() 8-digit SHA256', () => totp({ secret, timestamp: 50000, digits: 8, algorithm: 'SHA256' }));
-  await run('bun-otp: totp() 6-digit SHA512', () => totp({ secret, timestamp: 50000, algorithm: 'SHA512' }));
-  await run('bun-otp: totp.verify() window=1', async () => {
+  await measure('bun-otp: totp SHA1', () => totp({ secret, timestamp: 50000 }));
+  await measure('bun-otp: totp SHA256', () => totp({ secret, timestamp: 50000, digits: 8, algorithm: 'SHA256' }));
+  await measure('bun-otp: hotp SHA1', () => hotp({ secret, counter: 0 }));
+  await measure('bun-otp: totp.verify window=1', async () => {
     const token = await totp({ secret, timestamp: 50000 });
     await totp.verify({ secret, token, timestamp: 50000, window: 1 });
   });
+  await measure('bun-otp: base32Encode 64B', () => base32Encode(new Uint8Array(64)), 5000);
+  await measure('bun-otp: base32Decode 104ch', () => base32Decode(base32Encode(new Uint8Array(64))), 5000);
 
-  // Competitor: speakeasy
   try {
-    const speakeasy = require('speakeasy');
-    const speakeasySecret = speakeasy.generateSecret().base32;
-    await competitorTotp('speakeasy: totp() SHA1', () => speakeasy.totp({ secret: speakeasySecret, encoding: 'base32' }));
-  } catch { console.log('  speakeasy: SKIP (not available)'); }
+    const m: { default?: Record<string, unknown>; generateSecret: () => { base32: string }; totp: (o: Record<string, unknown>) => string; hotp: (o: Record<string, unknown>) => string } = await import('speakeasy');
+    const s = m.default || m;
+    const ss = s.generateSecret().base32;
+    await measure('speakeasy: totp SHA1', () => s.totp({ secret: ss, encoding: 'base32' }));
+    await measure('speakeasy: totp SHA256', () => s.totp({ secret: ss, encoding: 'base32', algorithm: 'sha256' }));
+    await measure('speakeasy: hotp SHA1', () => s.hotp({ secret: ss, counter: 0, encoding: 'base32' }));
+  } catch (e) { console.log('  speakeasy: ERROR —', (e as Error).message); }
 
-  // Competitor: otplib
   try {
-    const { authenticator } = require('otplib');
-    const otplibSecret = generateSecret();
-    await competitorTotp('otplib: totp() SHA1', () => authenticator.generate(otplibSecret));
-  } catch { console.log('  otplib: SKIP (not available)'); }
+    const m: { generate: (o: Record<string, unknown>) => Promise<string>; verify: (o: Record<string, unknown>) => Promise<{ valid: boolean }> } = await import('otplib');
+    await measure('otplib: totp SHA1', () => m.generate({ secret }));
+    await measure('otplib: totp SHA256', () => m.generate({ secret, algorithm: 'sha256' }));
+    await measure('otplib: hotp SHA1', () => m.generate({ secret, counter: 0 }));
+    const token = await m.generate({ secret });
+    await measure('otplib: totp.verify window=1', () => m.verify({ secret, token }));
+  } catch (e) { console.log('  otplib: ERROR —', (e as Error).message); }
 
-  // HOTP
-  await run('bun-otp: hotp() SHA1', () => hotp({ secret, counter: 0 }));
-  await run('bun-otp: hotp.verify() window=10', async () => {
-    const token = await hotp({ secret, counter: 100 });
-    await hotp.verify({ secret, counter: 95, token, window: 10 });
-  });
+  try {
+    const m: { generateTOTP: (o: Record<string, unknown>) => Promise<{ otp: string }>; verifyTOTP: (o: Record<string, unknown>) => Promise<{ delta: number } | null> } = await import('@epic-web/totp');
+    await measure('@epic-web/totp: totp SHA1', () => m.generateTOTP({ algorithm: 'SHA1', secret }));
+    await measure('@epic-web/totp: totp SHA256', () => m.generateTOTP({ algorithm: 'SHA256', secret }));
+    const { otp } = await m.generateTOTP({ algorithm: 'SHA1', secret });
+    await measure('@epic-web/totp: totp.verify window=1', () => m.verifyTOTP({ otp, secret, algorithm: 'SHA1', window: 1 }));
+  } catch (e) { console.log('  @epic-web/totp: ERROR —', (e as Error).message); }
 
-  // Base32
-  const raw = new Uint8Array(64);
-  const encoded = base32Encode(raw);
-  await run('bun-otp: base32Encode(64 bytes)', () => base32Encode(raw));
-  await run('bun-otp: base32Decode(104 chars)', () => base32Decode(encoded));
-
-  // Secret generation
-  await run('bun-otp: generateSecret(20)', () => generateSecret(20));
-  await run('bun-otp: generateSecret(32)', () => generateSecret(32));
-
-  console.log('='.repeat(72));
+  console.log('='.repeat(65));
+  console.log(`Note: Sync libs measured without await (tight loop). Async libs via await.`);
 });

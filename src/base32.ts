@@ -36,7 +36,7 @@ export function base32Decode(str: string): Uint8Array {
   if (str.length === 0) {
     throw new Error('base32Decode: empty input');
   }
-  const cleaned = str.replace(/=+$/, '').toUpperCase();
+  const cleaned = str.replace(/[\s-]/g, '').replace(/=+$/, '').toUpperCase();
   if (cleaned.length === 0) {
     throw new Error('base32Decode: input contains only padding characters');
   }

@@ -1,6 +1,6 @@
 {
   "name": "@nds-stack/bun-otp",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Zero-dependency TOTP/HOTP (2FA) for Bun — RFC 6238/4226 compliant, Web Crypto API, no Buffer needed.",
   "author": "nds-stack <nds.stack@gmail.com>",
   "type": "module",
@@ -19,6 +19,7 @@
     "README.md"
   ],
   "devDependencies": {
+    "@epic-web/totp": "^4.0.1",
     "@types/bun": "latest",
     "otplib": "^13.4.0",
     "speakeasy": "^2.0.0",

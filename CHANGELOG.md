@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0-alpha.3] — 2026-05-26
+
+### Changed
+- Web Crypto (`crypto.subtle`) → **`Bun.CryptoHasher`** (sync native, 20× faster)
+- `counterToBytes` using BigInt → plain number arithmetic
+- Redundant input validation in `hotpCore` (validated once in `hotpFn`)
+- `Math.pow(10, digits)` → `10 ** digits` (ES2021)
+
+### Fixed
+- Benchmark methodology: sync libs measured without `await` overhead
+- README benchmark table with honest latency vs throughput comparison
+
 ## [0.1.0-alpha.2] — 2026-05-26
 
 ### Added

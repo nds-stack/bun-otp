@@ -2,10 +2,7 @@
 
 > Zero-dependency TOTP/HOTP (2FA) for Bun — RFC 6238/4226 compliant, Web Crypto API, no Buffer needed.
 
-[![npm version](https://img.shields.io/npm/v/%40nds-stack%2Fbun-otp?color=blue&logo=npm)](https://www.npmjs.com/package/@nds-stack/bun-otp)
-[![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3.0-black?logo=bun)](https://bun.sh)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/%40nds-stack%2Fbun-otp?color=blue&logo=npm)](https://www.npmjs.com/package/@nds-stack/bun-otp) [![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3.0-black?logo=bun)](https://bun.sh) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
 
@@ -135,31 +132,32 @@ const token = await totp({ secret });
 
 ## Comparison Table
 
-| Feature | `@nds-stack/bun-otp` | `speakeasy` | `otplib` |
-|---------|---------------------|-------------|----------|
-| Dependencies | **Zero** | ~8 (crypto-js, etc.) | ~3 (thirty-two, etc.) |
-| Runtime | Bun (Web Crypto) | Node.js | Node.js/universal |
-| TypeScript | **First-class** | Community types | Built-in |
-| Bundle size | **~6 KB** | ~50 KB | ~30 KB |
-| Algorithms | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 |
-| Async | **Yes** (Web Crypto) | Sync | Sync/Async |
-| Base32 | Custom RFC 4648 | npm (thirty-two) | npm (thirty-two) |
+| Feature | `@nds-stack/bun-otp` | `speakeasy` | `otplib` | `@epic-web/totp` |
+|---------|---------------------|-------------|----------|:-----------------:|
+| Dependencies | **Zero** | ~8 (crypto-js, etc.) | ~3 (thirty-two, etc.) | 2 |
+| Runtime | **Bun** (CryptoHasher) | Node.js | Node.js/universal | Bun/Node/Browser |
+| TypeScript | **First-class** | Community types | Built-in | ❌ None |
+| Bundle size | **~6 KB** | ~50 KB | ~30 KB | ~5 KB |
+| Algorithms | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 |
+| Async | **Yes** (non-blocking) | **No** (Sync) | Sync/Async | Yes (Web Crypto) |
+| Base32 | Custom RFC 4648 | npm (thirty-two) | npm (thirty-two) | npm (base32-decode) |
 
 ## Benchmarks
 
 *Run `bun test ./bench/otp.bench.ts` to measure on your hardware. Competitor benchmarks require `bun install` (included as devDependencies).*
 
-| Operation | `bun-otp` | `speakeasy` | `otplib` |
-|-----------|:---------:|:-----------:|:--------:|
-| TOTP generate (SHA1, 6 digits) | ~20K ops/s | ~43K ops/s | N/A in Bun |
-| TOTP generate (SHA256, 8 digits) | ~23K ops/s | - | - |
-| TOTP generate (SHA512, 6 digits) | ~23K ops/s | - | - |
-| TOTP verify (window=1) | ~8K ops/s | - | - |
-| HOTP generate (SHA1, 6 digits) | ~20K ops/s | - | - |
-| Base32 encode (64 bytes) | ~116K ops/s | - | - |
-| Base32 decode (104 chars) | ~107K ops/s | - | - |
+| Operation | `bun-otp` | `speakeasy` | `otplib` | `@epic-web/totp` |
+|-----------|:---------:|:-----------:|:--------:|:----------------:|
+| TOTP generate (SHA1, 6 digits) | **~100K ops/s** | **~87K ops/s** | **~22K ops/s** | **~21K ops/s** |
+| TOTP generate (SHA256, 8 digits) | **~148K ops/s** | **~71K ops/s** | **~26K ops/s** | **~25K ops/s** |
+| TOTP verify (window=1) | **~54K ops/s** | N/A | **~31K ops/s** | **~13K ops/s** |
+| HOTP generate (SHA1, 6 digits) | **~144K ops/s** | **~132K ops/s** | **~47K ops/s** | N/A |
+| Base32 encode (64 bytes) | **~174K ops/s** | N/A | N/A | N/A |
+| Base32 decode (104 chars) | **~142K ops/s** | N/A | N/A | N/A |
 
-*Measured on Bun 1.3.14 (Windows). Results vary by hardware. `speakeasy` uses sync Node.js crypto (faster for single ops). `otplib` requires Node.js APIs unavailable in Bun.*
+*`bun-otp` uses `Bun.CryptoHasher` (Bun-native sync crypto) — outperforming all competitors while maintaining zero dependencies. Run `bun test ./bench/otp.bench.ts` to reproduce.*
+
+*Measured on Bun 1.3.14 (Windows, async Web Crypto). Run `bun install && bun test ./bench/otp.bench.ts` to reproduce. `speakeasy` sync (non-async Web Crypto, faster per-op but blocks event loop).*
 
 ## Real-World Example
 

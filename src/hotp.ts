@@ -4,19 +4,19 @@ import { timingSafeEqual } from './timing-safe-equal.js';
 import type { HOTPOptions, HOTPVerifyOptions } from './types.js';
 
 function counterToBytes(counter: number): Uint8Array {
-  if (counter > Number.MAX_SAFE_INTEGER) {
-    throw new RangeError(`HOTP: counter exceeds MAX_SAFE_INTEGER, got ${counter}`);
-  }
   const bytes = new Uint8Array(8);
-  let c = BigInt(Math.floor(counter));
+  let c = Math.floor(counter);
   for (let i = 7; i >= 0; i--) {
-    bytes[i] = Number(c & 0xffn);
-    c >>= 8n;
+    bytes[i] = c & 0xff;
+    c >>>= 8;
   }
   return bytes;
 }
 
 function dynamicTruncate(hmacResult: Uint8Array): number {
+  if (hmacResult.length < 4) {
+    throw new Error('HMAC result too short for dynamic truncation');
+  }
   const offset = hmacResult[hmacResult.length - 1] & 0xf;
   const code =
     ((hmacResult[offset] & 0x7f) << 24) |
@@ -28,9 +28,9 @@ function dynamicTruncate(hmacResult: Uint8Array): number {
 
 async function hotpCore(key: Uint8Array, counter: number, digits: number, algorithm: 'SHA1' | 'SHA256' | 'SHA512'): Promise<string> {
   const counterData = counterToBytes(counter);
-  const hmacResult = await hmacSign(key, counterData, algorithm);
+  const hmacResult = hmacSign(key, counterData, algorithm);
   const binaryCode = dynamicTruncate(hmacResult);
-  const otp = binaryCode % Math.pow(10, digits);
+  const otp = binaryCode % (10 ** digits);
   return otp.toString().padStart(digits, '0');
 }
 
@@ -40,7 +40,7 @@ async function hotpFn(options: HOTPOptions): Promise<string> {
   if (!Number.isInteger(digits) || digits < 1 || digits > 10) {
     throw new RangeError(`HOTP: digits must be 1-10, got ${digits}`);
   }
-  if (!Number.isInteger(counter) || counter < 0) {
+  if (!Number.isInteger(counter) || counter < 0 || counter > Number.MAX_SAFE_INTEGER) {
     throw new RangeError(`HOTP: counter must be a non-negative integer, got ${counter}`);
   }
 
@@ -70,4 +70,6 @@ async function hotpVerify(options: HOTPVerifyOptions): Promise<boolean> {
   return false;
 }
 
-export const hotp = Object.assign(hotpFn, { verify: hotpVerify, core: hotpCore });
+export const hotp = Object.assign(hotpFn, { verify: hotpVerify });
+
+export { hotpCore };
