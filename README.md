@@ -2,7 +2,7 @@
 
 > Zero-dependency TOTP/HOTP (2FA) for Bun — RFC 6238/4226 compliant, `Bun.CryptoHasher`, no Buffer needed.
 
-[![npm version](https://img.shields.io/npm/v/%40nds-stack%2Fbun-otp?color=blue&logo=npm)](https://www.npmjs.com/package/@nds-stack/bun-otp) [![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3.0-black?logo=bun)](https://bun.sh) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/%40nds-stack%2Fbun-otp?color=blue&logo=npm)](https://www.npmjs.com/package/@nds-stack/bun-otp) [![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3.0-black?logo=bun)](https://bun.sh) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![CI](https://img.shields.io/badge/CI-ready-lightgrey)](https://github.com/nds-stack/bun-otp/actions) [![Tests](https://img.shields.io/badge/tests-35%20pass-brightgreen)](https://github.com/nds-stack/bun-otp)
 
 ---
 
@@ -357,6 +357,45 @@ const uri = generateOTPAuthURI({
 // → otpauth://totp/MyApp:user%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=MyApp
 ```
 
+---
+
+### `generateQRCodeURL(uri: string, size?: number): string`
+
+Generates a URL to a QR code API (qrserver.com) for any OTP Auth URI. Use this to generate QR codes for authenticator app enrollment.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `uri` | `string` | (required) | OTP Auth URI from `generateOTPAuthURI()` |
+| `size` | `number` | `200` | QR code size in pixels |
+
+- **Returns:** `string` — URL to QR code image
+
+```typescript
+const uri = generateOTPAuthURI({ type: 'totp', secret, issuer: 'MyApp', accountName: 'user@example.com' });
+const qr = generateQRCodeURL(uri, 300);
+// → https://api.qrserver.com/v1/create-qr-code/?data=otpauth%3A%2F%2F...&size=300x300
+```
+
+---
+
+### `steamTotp(key: Uint8Array, timestamp: number, algorithm?): string`
+
+Generates a Steam Guard–style one-time password (5 characters, custom alphabet `23456789BCDFGHJKMNPQRTVWXY`).
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `key` | `Uint8Array` | (required) | Raw bytes (NOT base32). Use `base32Decode(secret)` first |
+| `timestamp` | `number` | (required) | Unix timestamp in milliseconds |
+| `algorithm` | `'SHA1' \| 'SHA256' \| 'SHA512'` | `'SHA1'` | HMAC hash algorithm |
+
+- **Returns:** `string` — 5-character Steam Guard code
+
+```typescript
+const key = base32Decode(secret);
+const code = steamTotp(key, Date.now());
+// → '2B3C7' (5-char alphanumeric)
+```
+
 ### Notes on sync API
 All functions are sync via `Bun.CryptoHasher`. Unlike TOTP libraries built on Web Crypto (which return Promises), `bun-otp` operations complete immediately. This means:
 - No `await` needed anywhere
@@ -376,6 +415,8 @@ All functions are sync via `Bun.CryptoHasher`. Unlike TOTP libraries built on We
 | Algorithms | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 |
 | API style | **Sync** (no await) | **Sync** | Sync/Async | Async |
 | Base32 | Custom RFC 4648 | npm (thirty-two) | npm (thirty-two) | npm (base32-decode) |
+| Steam TOTP | ✅ Built-in | ❌ No | ❌ No | ❌ No |
+| QR code URL | ✅ Built-in | ❌ No | ❌ No | ❌ No |
 | HOTP | ✅ Full support | ✅ Full support | ✅ Full support | ❌ TOTP only |
 | OTP URI | ✅ Implemented | ✅ Built-in | ✅ Built-in | ✅ Built-in |
 

@@ -23,13 +23,18 @@ export interface HOTPVerifyOptions extends HOTPOptions {
   window?: number
 }
 
-export interface OTPAuthURIOptions {
-  type: 'totp' | 'hotp'
+export type OTPAuthURIOptions = {
   secret: string
   issuer: string
   accountName: string
   algorithm?: 'SHA1' | 'SHA256' | 'SHA512'
   digits?: number
+} & ({
+  type: 'totp'
   period?: number
-  counter?: number
-}
+  counter?: never
+} | {
+  type: 'hotp'
+  counter: number
+  period?: never
+})

@@ -1,5 +1,5 @@
-// Custom benchmark runner — Bun.bench() not available in Bun v1.3.14 on Windows.
-// Uses sync/async detection for fair comparison across sync & async libraries.
+// Benchmark runner: uses Bun.bench() if available (Bun >= 1.4),
+// falls back to custom performance.now() runner for older Bun versions.
 import { describe } from 'bun:test';
 import { hotp, totp, generateSecret, base32Encode, base32Decode } from '../src/index.ts';
 
@@ -9,27 +9,43 @@ crypto.getRandomValues(baselineKey);
 const baselineData = new Uint8Array(8);
 
 async function measure(label: string, fn: () => unknown, iterations = 1000) {
-  const sample = fn();
-  const isAsync = sample instanceof Promise;
+  // Detect sync vs async
+  let isAsync = false;
+  try {
+    const sample = fn();
+    isAsync = sample instanceof Promise;
+  } catch (e) {
+    console.log(`  ${label.padEnd(50)} ERROR: ${(e as Error).message}`);
+    return;
+  }
 
   // Warmup
-  for (let i = 0; i < 100; i++) fn();
+  for (let i = 0; i < 100; i++) { try { fn(); } catch { break; } }
 
   const results: number[] = [];
   for (let run = 0; run < 5; run++) {
     const start = performance.now();
-    if (isAsync) {
-      for (let i = 0; i < iterations; i++) await (fn as () => Promise<unknown>)();
-    } else {
-      for (let i = 0; i < iterations; i++) (fn as () => void)();
+    try {
+      if (isAsync) {
+        for (let i = 0; i < iterations; i++) await (fn as () => Promise<unknown>)();
+      } else {
+        for (let i = 0; i < iterations; i++) (fn as () => void)();
+      }
+      results.push(Math.round(iterations / ((performance.now() - start) / 1000)));
+    } catch {
+      results.push(0);
     }
-    results.push(Math.round(iterations / ((performance.now() - start) / 1000)));
   }
 
-  const avg = Math.round(results.reduce((a, b) => a + b, 0) / results.length);
-  const min = Math.min(...results);
-  const max = Math.max(...results);
-  console.log(`  ${label.padEnd(50)} ${String(avg).padStart(10)} ops/s  (min ${String(min).padStart(8)}, max ${String(max).padStart(8)}, 5 runs)`);
+  const valid = results.filter(r => r > 0);
+  if (valid.length === 0) {
+    console.log(`  ${label.padEnd(50)} FAILED`);
+    return;
+  }
+  const avg = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+  const min = Math.min(...valid);
+  const max = Math.max(...valid);
+  console.log(`  ${label.padEnd(50)} ${String(avg).padStart(10)} ops/s  (min ${String(min).padStart(8)}, max ${String(max).padStart(8)}, ${valid.length} runs)`);
 }
 
 describe('OTP Benchmarks', async () => {
@@ -57,11 +73,11 @@ describe('OTP Benchmarks', async () => {
   } catch (e) { console.log('  speakeasy: ERROR —', (e as Error).message); }
 
   try {
-    const m = await import('otplib') as { generate: (o: Record<string, unknown>) => string; verify: (o: Record<string, unknown>) => { valid: boolean } };
+    const m = await import('otplib') as { generate: (o: Record<string, unknown>) => Promise<string>; verify: (o: Record<string, unknown>) => Promise<{ token: string }> };
     await measure('otplib: totp SHA1', () => m.generate({ secret }));
     await measure('otplib: totp SHA256', () => m.generate({ secret, algorithm: 'sha256' }));
     await measure('otplib: hotp SHA1', () => m.generate({ secret, counter: 0 }));
-    const otplibToken = m.generate({ secret });
+    const otplibToken = await m.generate({ secret });
     await measure('otplib: totp.verify window=1', () => m.verify({ secret, token: otplibToken }));
   } catch (e) { console.log('  otplib: ERROR —', (e as Error).message); }
 

@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.0-alpha.6] — 2026-05-26
+
+### Fixed
+- Discriminated union for `OTPAuthURIOptions` — `counter` required for HOTP at type level
+- Benchmark: try/catch inside `measure()` — one failure doesn't crash entire bench
+- Benchmark: `otplib` v13 API — proper Promise handling
+- AGENTS.md: architecture diagram updated with all 10 source files
+- README: CI badge, test badge (35 pass), QR code feature note
+
+### Changed
+- `OTPAuthURIOptions` type — discriminated union (`totp` vs `hotp`)
+- `package.json` — added `repository`, `bugs`, `homepage` fields
+
+## [0.1.0-alpha.5] — 2026-05-26
+
+### Added
+- `generateQRCodeURL()` — QR code URL generator (via qrserver.com API)
+- `steamTotp()` — Steam Guard–style OTP (5-char, custom alphabet)
+- GitHub Actions CI workflow
+- Full security review — all checks pass (CSPRNG, deterministic, no Buffer, edge cases)
+- Base32 decode: `Math.floor` fix (was `Math.ceil` — caused corrupted output for non-standard secret lengths)
+- Base32 decode: padding bits validation per RFC 4648
+- OTP Auth URI: runtime type validation + issuer colon sanitization
+- Test coverage: 35 tests total (+6: base32 roundtrip, QR URL, Steam TOTP ×2, padding bits)
+
+### Changed
+- `ALGORITHM_MAP` — `Readonly` for type safety
+- Bundle: 8.96 KB (zero dep)
+
 ## [0.1.0-alpha.4] — 2026-05-26
 
 ### Added

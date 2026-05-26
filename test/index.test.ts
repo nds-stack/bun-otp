@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { generateSecret, totp, hotp, generateOTPAuthURI, base32Encode, base32Decode } from '../src/index';
+import { generateSecret, totp, hotp, steamTotp, generateOTPAuthURI, generateQRCodeURL, base32Encode, base32Decode } from '../src/index';
 
 describe('base32', () => {
   test('generateSecret produces valid base32 string', () => {
@@ -247,6 +247,29 @@ describe('OTPAuthURI', () => {
       issuer: 'X',
       accountName: 'y',
     })).toThrow();
+  });
+
+  test('QR code URL generates valid URL', () => {
+    const uri = generateOTPAuthURI({ type: 'totp', secret, issuer: 'X', accountName: 'y' });
+    const qr = generateQRCodeURL(uri, 300);
+    expect(qr).toContain('https://api.qrserver.com/v1/create-qr-code/');
+    expect(qr).toContain('size=300x300');
+    expect(qr).toContain(encodeURIComponent(uri));
+  });
+
+  test('Steam TOTP produces 5-char alphanumeric code', () => {
+    const secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+    const code = steamTotp(base32Decode(secret), 0);
+    expect(code).toHaveLength(5);
+    expect(code).toMatch(/^[2-7BCDFGHJKMNPQRTVWXY]+$/);
+  });
+
+  test('Steam TOTP deterministic for same timestamp', () => {
+    const secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+    const key = base32Decode(secret);
+    const a = steamTotp(key, 50000);
+    const b = steamTotp(key, 50000);
+    expect(a).toBe(b);
   });
 
   test('uses defaults: no algorithm/digits when SHA1/6', () => {

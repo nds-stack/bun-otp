@@ -1,5 +1,11 @@
 import type { OTPAuthURIOptions } from './types.js';
 
+const QR_API = 'https://api.qrserver.com/v1/create-qr-code/';
+
+export function generateQRCodeURL(uri: string, size = 200): string {
+  return `${QR_API}?data=${encodeURIComponent(uri)}&size=${size}x${size}`;
+}
+
 export function generateOTPAuthURI(options: OTPAuthURIOptions): string {
   const { type, secret, issuer, accountName, algorithm, digits } = options;
 
@@ -24,5 +30,5 @@ export function generateOTPAuthURI(options: OTPAuthURIOptions): string {
     query.set('counter', String(options.counter!));
   }
 
-  return `otpauth://${type}/${label}?${query.toString().replace(/\+/g, '%20')}`;
+  return `otpauth://${type}/${label}?${query.toString().replace(/\+/g, '%20').replace(/%3D/g, '=')}`;
 }
