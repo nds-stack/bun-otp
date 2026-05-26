@@ -70,4 +70,4 @@ async function hotpVerify(options: HOTPVerifyOptions): Promise<boolean> {
   return false;
 }
 
-export const hotp = Object.assign(hotpFn, { verify: hotpVerify });
+export const hotp = Object.assign(hotpFn, { verify: hotpVerify, core: hotpCore });

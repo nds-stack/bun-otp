@@ -51,10 +51,11 @@ async function totpVerify(options: TOTPVerifyOptions): Promise<boolean> {
   const time = timestamp ?? Date.now();
   const counter = Math.floor(time / 1000 / period);
 
+  const key = base32Decode(secret);
   for (let i = -win; i <= win; i++) {
     const checkCounter = counter + i;
     if (checkCounter < 0) continue;
-    const generated = await hotp({ secret, counter: checkCounter, digits, algorithm });
+    const generated = await hotp.core(key, checkCounter, digits, algorithm);
     if (timingSafeEqual(generated, token)) return true;
   }
   return false;

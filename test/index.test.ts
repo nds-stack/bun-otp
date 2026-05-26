@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { generateSecret, totp, hotp } from '../src/index.ts';
+import { generateSecret, totp, hotp } from '../src/index';
 
 describe('base32', () => {
   test('generateSecret produces valid base32 string', () => {

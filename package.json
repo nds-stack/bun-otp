@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "build": "bun run clean && bun build ./src/index.ts --outdir=./dist --target=bun --format=esm && tsc -p tsconfig.build.json",
-    "bench": "bun run bench/otp.bench.ts",
+    "bench": "bun test ./bench/otp.bench.ts",
     "prepublishOnly": "bun run typecheck && bun test && bun run build"
   },
   "files": [
@@ -20,6 +20,8 @@
   ],
   "devDependencies": {
     "@types/bun": "latest",
+    "otplib": "^13.4.0",
+    "speakeasy": "^2.0.0",
     "typescript": "^6.0.3"
   },
   "engines": {

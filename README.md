@@ -147,19 +147,19 @@ const token = await totp({ secret });
 
 ## Benchmarks
 
-*Run `bun run bench` to measure on your hardware.*
+*Run `bun test ./bench/otp.bench.ts` to measure on your hardware. Competitor benchmarks require `bun install` (included as devDependencies).*
 
-| Operation | Throughput |
-|-----------|------------|
-| TOTP generate (SHA1, 6 digits) | ~80,000 ops/s |
-| TOTP generate (SHA256, 8 digits) | ~50,000 ops/s |
-| TOTP generate (SHA512, 6 digits) | ~25,000 ops/s |
-| TOTP verify (window=1) | ~40,000 ops/s |
-| HOTP generate (SHA1, 6 digits) | ~80,000 ops/s |
-| Base32 encode (64 bytes) | ~5,000,000 ops/s |
-| Base32 decode (104 chars) | ~3,000,000 ops/s |
+| Operation | `bun-otp` | `speakeasy` | `otplib` |
+|-----------|:---------:|:-----------:|:--------:|
+| TOTP generate (SHA1, 6 digits) | ~20K ops/s | ~43K ops/s | N/A in Bun |
+| TOTP generate (SHA256, 8 digits) | ~23K ops/s | - | - |
+| TOTP generate (SHA512, 6 digits) | ~23K ops/s | - | - |
+| TOTP verify (window=1) | ~8K ops/s | - | - |
+| HOTP generate (SHA1, 6 digits) | ~20K ops/s | - | - |
+| Base32 encode (64 bytes) | ~116K ops/s | - | - |
+| Base32 decode (104 chars) | ~107K ops/s | - | - |
 
-*Measured on Bun 1.3+ on an M3 MacBook Pro. Results vary by hardware. Baseline benchmark included in suite for comparison.*
+*Measured on Bun 1.3.14 (Windows). Results vary by hardware. `speakeasy` uses sync Node.js crypto (faster for single ops). `otplib` requires Node.js APIs unavailable in Bun.*
 
 ## Real-World Example
 
