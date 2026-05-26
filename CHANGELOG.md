@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0-alpha.2] — 2026-05-26
+
+### Added
+- Competitor benchmarks (`speakeasy`, `otplib`) in benchmark suite
+- `hotp.core()` — internal function exposed for optimized batch generation
+
+### Fixed
+- Bench script broken (`bun run bench` → `bun test ./bench/otp.bench.ts`)
+- Inconsistent `.js` imports in `src/index.ts`
+- TOTP verify redundant base32 decode per window iteration (decode once now)
+- README benchmark table updated with real measured numbers
+
 ## [0.1.0-alpha.1] — 2026-05-26
 
 ### Added
