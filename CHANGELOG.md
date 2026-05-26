@@ -3,6 +3,9 @@
 ## [0.1.0-alpha.4] — 2026-05-26
 
 ### Added
+- `generateOTPAuthURI()` — OTP Auth URI generation (Google Authenticator Key Uri Format)
+- Migration guide from speakeasy/otplib (in README)
+- Authenticator app integration guide (in README)
 - Full README rewrite for context7 AI indexing — 9 sections with architecture, all API docs, error table, multi-instance patterns, production examples
 - Benchmark: 5-run average with min/max reporting
 - Base32 decode: max input length guard (1M chars)
@@ -14,7 +17,7 @@
 - `hotp()` / `totp()` — sync API (no async/await, no Promise wrapping)
 - `hotpCore` moved to `src/hotp-core.ts` (internal, not exported)
 - Counter overflow fix: BigInt in `counterToBytes`
-- Improved `hottest` validation: merge redundant checks
+- Improved `hotp` validation: merge redundant checks
 
 ### Fixed
 - Benchmark: sync/async detection restored (was not awaiting Promises)
@@ -57,7 +60,7 @@
 - Input validation: digits range (1-10), counter (≥0), timestamp, empty/padding-only base32
 - Constant-time token comparison (`timingSafeEqual`)
 - Window validation with max limits (TOTP: 10, HOTP: 50)
-- RFC 4226 known-value test vectors (24 tests total)
+- RFC 4226 known-value test vectors (29 tests total)
 - Clean script (`rm -rf dist`) for build hygiene
 - Performance benchmarks with native Web Crypto baseline
 - Comprehensive error-path tests

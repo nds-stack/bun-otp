@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { generateSecret, totp, hotp } from '../src/index';
+import { generateSecret, totp, hotp, generateOTPAuthURI, base32Encode, base32Decode } from '../src/index';
 
 describe('base32', () => {
   test('generateSecret produces valid base32 string', () => {
@@ -7,47 +7,69 @@ describe('base32', () => {
     expect(secret.length).toBeGreaterThan(0);
     expect(secret).toMatch(/^[A-Z2-7]+=*$/);
   });
+
+  test('generateSecret(16) roundtrip preserves length', () => {
+    const original = new Uint8Array(16);
+    crypto.getRandomValues(original);
+    const encoded = base32Encode(original);
+    const decoded = base32Decode(encoded);
+    expect(decoded.length).toBe(16);
+    expect(decoded).toEqual(original);
+  });
+
+  test('generateSecret(32) roundtrip preserves length', () => {
+    const original = new Uint8Array(32);
+    crypto.getRandomValues(original);
+    const encoded = base32Encode(original);
+    const decoded = base32Decode(encoded);
+    expect(decoded.length).toBe(32);
+    expect(decoded).toEqual(original);
+  });
+
+  test('base32Decode rejects non-zero padding bits', () => {
+    expect(() => base32Decode('AB======')).toThrow();
+  });
 });
 
 describe('TOTP', () => {
   const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 
   test('generates 6-digit token', async () => {
-    const token = await totp({ secret, timestamp: 0 });
+    const token = totp({ secret, timestamp: 0 });
     expect(token).toHaveLength(6);
     expect(/^\d{6}$/.test(token)).toBe(true);
   });
 
   test('generates 8-digit token', async () => {
-    const token = await totp({ secret, digits: 8, timestamp: 0 });
+    const token = totp({ secret, digits: 8, timestamp: 0 });
     expect(token).toHaveLength(8);
     expect(/^\d{8}$/.test(token)).toBe(true);
   });
 
   test('SHA256 algorithm works', async () => {
-    const token = await totp({ secret, algorithm: 'SHA256', timestamp: 0 });
+    const token = totp({ secret, algorithm: 'SHA256', timestamp: 0 });
     expect(token).toHaveLength(6);
   });
 
   test('SHA512 algorithm works', async () => {
-    const token = await totp({ secret, algorithm: 'SHA512', timestamp: 0 });
+    const token = totp({ secret, algorithm: 'SHA512', timestamp: 0 });
     expect(token).toHaveLength(6);
   });
 
   test('verify returns true for valid token', async () => {
-    const token = await totp({ secret, timestamp: 0 });
-    const valid = await totp.verify({ secret, token, timestamp: 0 });
+    const token = totp({ secret, timestamp: 0 });
+    const valid = totp.verify({ secret, token, timestamp: 0 });
     expect(valid).toBe(true);
   });
 
   test('verify returns false for invalid token', async () => {
-    const valid = await totp.verify({ secret, token: '000000', timestamp: 0 });
+    const valid = totp.verify({ secret, token: '000000', timestamp: 0 });
     expect(valid).toBe(false);
   });
 
   test('verify with window=1 accepts adjacent periods', async () => {
-    const token = await totp({ secret, timestamp: 0 });
-    const valid = await totp.verify({
+    const token = totp({ secret, timestamp: 0 });
+    const valid = totp.verify({
       secret,
       token,
       timestamp: 30000,
@@ -57,13 +79,13 @@ describe('TOTP', () => {
   });
 
   test('same secret + same time = same token', async () => {
-    const token1 = await totp({ secret, timestamp: 1000000 });
-    const token2 = await totp({ secret, timestamp: 1000000 });
+    const token1 = totp({ secret, timestamp: 1000000 });
+    const token2 = totp({ secret, timestamp: 1000000 });
     expect(token1).toBe(token2);
   });
 
   test('RFC 6238 test vector — time=59, 8 digits', async () => {
-    const token = await totp({
+    const token = totp({
       secret,
       timestamp: 59000,
       digits: 8,
@@ -73,7 +95,7 @@ describe('TOTP', () => {
   });
 
   test('RFC 6238 test vector — time=1111111109, 8 digits', async () => {
-    const token = await totp({
+    const token = totp({
       secret,
       timestamp: 1111111109000,
       digits: 8,
@@ -83,7 +105,7 @@ describe('TOTP', () => {
   });
 
   test('token is exactly `digits` long (no leading zeros stripped)', async () => {
-    const token = await totp({
+    const token = totp({
       secret,
       timestamp: 1111111109000,
       digits: 8,
@@ -98,25 +120,25 @@ describe('HOTP', () => {
   const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 
   test('generates token for counter=0', async () => {
-    const token = await hotp({ secret, counter: 0 });
+    const token = hotp({ secret, counter: 0 });
     expect(token).toHaveLength(6);
     expect(/^\d{6}$/.test(token)).toBe(true);
   });
 
   test('generates token for counter=9999', async () => {
-    const token = await hotp({ secret, counter: 9999 });
+    const token = hotp({ secret, counter: 9999 });
     expect(token).toHaveLength(6);
   });
 
   test('verify returns true for valid token', async () => {
-    const token = await hotp({ secret, counter: 42 });
-    const valid = await hotp.verify({ secret, counter: 42, token });
+    const token = hotp({ secret, counter: 42 });
+    const valid = hotp.verify({ secret, counter: 42, token });
     expect(valid).toBe(true);
   });
 
   test('verify with window accepts look-ahead', async () => {
-    const token = await hotp({ secret, counter: 100 });
-    const valid = await hotp.verify({
+    const token = hotp({ secret, counter: 100 });
+    const valid = hotp.verify({
       secret,
       counter: 99,
       token,
@@ -126,8 +148,8 @@ describe('HOTP', () => {
   });
 
   test('different secrets produce different tokens', async () => {
-    const token1 = await hotp({ secret, counter: 5 });
-    const token2 = await hotp({ secret: 'AAAAAAAAAAAAAAAA', counter: 5 });
+    const token1 = hotp({ secret, counter: 5 });
+    const token2 = hotp({ secret: 'AAAAAAAAAAAAAAAA', counter: 5 });
     expect(token1).not.toBe(token2);
   });
 
@@ -139,7 +161,7 @@ describe('HOTP', () => {
       [9, '520489'],
     ] as const;
     for (const [counter, expected] of vectors) {
-      const token = await hotp({ secret, counter, digits: 6 });
+      const token = hotp({ secret, counter, digits: 6 });
       expect(token).toBe(expected);
     }
   });
@@ -172,5 +194,70 @@ describe('Error handling', () => {
 
   test('throws on NaN timestamp', () => {
     expect(() => totp({ secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', timestamp: NaN })).toThrow();
+  });
+});
+
+describe('OTPAuthURI', () => {
+  const secret = 'JBSWY3DPEHPK3PXP';
+
+  test('generates TOTP URI with issuer and account', () => {
+    const uri = generateOTPAuthURI({
+      type: 'totp',
+      secret,
+      issuer: 'Example',
+      accountName: 'alice@google.com',
+    });
+    expect(uri).toStartWith('otpauth://totp/');
+    expect(uri).toContain('secret=JBSWY3DPEHPK3PXP');
+    expect(uri).toContain('issuer=Example');
+    expect(uri).toContain('Example:alice%40google.com');
+  });
+
+  test('generates TOTP URI with all optional params', () => {
+    const uri = generateOTPAuthURI({
+      type: 'totp',
+      secret,
+      issuer: 'ACME Co',
+      accountName: 'john.doe@email.com',
+      algorithm: 'SHA256',
+      digits: 8,
+      period: 60,
+    });
+    expect(uri).toContain('algorithm=SHA256');
+    expect(uri).toContain('digits=8');
+    expect(uri).toContain('period=60');
+  });
+
+  test('generates HOTP URI with counter', () => {
+    const uri = generateOTPAuthURI({
+      type: 'hotp',
+      secret,
+      issuer: 'MyApp',
+      accountName: 'user',
+      counter: 0,
+    });
+    expect(uri).toStartWith('otpauth://hotp/');
+    expect(uri).toContain('counter=0');
+  });
+
+  test('throws on missing counter for HOTP', () => {
+    expect(() => generateOTPAuthURI({
+      type: 'hotp',
+      secret,
+      issuer: 'X',
+      accountName: 'y',
+    })).toThrow();
+  });
+
+  test('uses defaults: no algorithm/digits when SHA1/6', () => {
+    const uri = generateOTPAuthURI({
+      type: 'totp',
+      secret,
+      issuer: 'X',
+      accountName: 'y',
+    });
+    expect(uri).not.toContain('algorithm=');
+    expect(uri).not.toContain('digits=');
+    expect(uri).not.toContain('period=');
   });
 });

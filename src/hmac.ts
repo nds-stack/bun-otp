@@ -1,6 +1,6 @@
 type AlgorithmName = 'SHA1' | 'SHA256' | 'SHA512'
 
-const ALGORITHM_MAP: Record<AlgorithmName, 'sha1' | 'sha256' | 'sha512'> = {
+const ALGORITHM_MAP: Readonly<Record<AlgorithmName, 'sha1' | 'sha256' | 'sha512'>> = {
   SHA1: 'sha1',
   SHA256: 'sha256',
   SHA512: 'sha512',

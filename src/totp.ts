@@ -4,7 +4,7 @@ import { timingSafeEqual } from './timing-safe-equal.js';
 import type { TOTPOptions, TOTPVerifyOptions } from './types.js';
 
 function validatePeriodAndDigits(period: number, digits: number): void {
-  if (!Number.isFinite(period) || period < 1) {
+  if (!Number.isInteger(period) || period < 1) {
     throw new RangeError(`TOTP: period must be >= 1, got ${period}`);
   }
   if (!Number.isInteger(digits) || digits < 1 || digits > 10) {

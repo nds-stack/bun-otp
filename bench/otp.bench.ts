@@ -57,11 +57,11 @@ describe('OTP Benchmarks', async () => {
   } catch (e) { console.log('  speakeasy: ERROR —', (e as Error).message); }
 
   try {
-    const m: { generate: (o: Record<string, unknown>) => Promise<string>; verify: (o: Record<string, unknown>) => Promise<{ valid: boolean }> } = await import('otplib');
+    const m = await import('otplib') as { generate: (o: Record<string, unknown>) => string; verify: (o: Record<string, unknown>) => { valid: boolean } };
     await measure('otplib: totp SHA1', () => m.generate({ secret }));
     await measure('otplib: totp SHA256', () => m.generate({ secret, algorithm: 'sha256' }));
     await measure('otplib: hotp SHA1', () => m.generate({ secret, counter: 0 }));
-    const otplibToken = await m.generate({ secret });
+    const otplibToken = m.generate({ secret });
     await measure('otplib: totp.verify window=1', () => m.verify({ secret, token: otplibToken }));
   } catch (e) { console.log('  otplib: ERROR —', (e as Error).message); }
 
@@ -72,6 +72,16 @@ describe('OTP Benchmarks', async () => {
     const { otp: epicOtp } = await m.generateTOTP({ algorithm: 'SHA1', secret });
     await measure('@epic-web/totp: totp.verify window=1', () => m.verifyTOTP({ otp: epicOtp, secret, algorithm: 'SHA1', window: 1 }));
   } catch (e) { console.log('  @epic-web/totp: ERROR —', (e as Error).message); }
+
+  // ——— otpauth ———
+  try {
+    const { TOTP, Secret } = await import('otpauth');
+    const sec = new Secret({ buffer: base32Decode(secret) });
+    const totpInst = new TOTP({ secret: sec, issuer: 'X', label: 'y' });
+    const totpInst256 = new TOTP({ secret: sec, issuer: 'X', label: 'y', algorithm: 'SHA256' });
+    await measure('otpauth: totp SHA1', () => totpInst.generate());
+    await measure('otpauth: totp SHA256', () => totpInst256.generate());
+  } catch (e) { console.log('  otpauth: ERROR —', (e as Error).message); }
 
   console.log('='.repeat(65));
 });

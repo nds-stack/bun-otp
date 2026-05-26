@@ -24,11 +24,12 @@ All cryptographic operations use **`Bun.CryptoHasher`** — Bun's native HMAC im
 
 ```
 src/
-├── index.ts              → Public API: totp, hotp, generateSecret, base32Encode, base32Decode
+├── index.ts              → Public API: totp, hotp, generateSecret, generateOTPAuthURI, base32Encode, base32Decode
 ├── hotp.ts               → HOTP generation & verification (sync)
 ├── totp.ts               → TOTP generation & verification (sync)
+├── otpauth-uri.ts        → OTP Auth URI generation (Google Authenticator format)
 ├── hotp-core.ts          → Internal: counterToBytes, dynamicTruncation (not public)
-├── hmac.ts               → Bun.CryptoHasher wrapper
+├── hmac.ts               → Bun.CryptoHasher HMAC wrapper
 ├── base32.ts             → RFC 4648 base32 encoder/decoder
 ├── generate-secret.ts    → CSPRNG secret generation via crypto.getRandomValues()
 └── timing-safe-equal.ts  → Constant-time string comparison
@@ -211,6 +212,89 @@ if (valid) {
 
 ---
 
+## Migration Guide
+
+### From speakeasy
+
+| speakeasy (sync) | bun-otp (sync) |
+|------------------|----------------|
+| `speakeasy.totp({ secret, encoding: 'base32' })` | `totp({ secret })` |
+| `speakeasy.totp({ secret, encoding: 'base32', algorithm: 'sha256' })` | `totp({ secret, algorithm: 'SHA256' })` |
+| `speakeasy.hotp({ secret, counter, encoding: 'base32' })` | `hotp({ secret, counter })` |
+| `speakeasy.totp.verify({ secret, token, encoding: 'base32', window: 2 })` | `totp.verify({ secret, token, window: 2 })` |
+| `speakeasy.generateSecret().base32` | `generateSecret()` |
+
+**Key differences:**
+- No `encoding: 'base32'` — bun-otp expects base32 directly
+- Algorithms are uppercase (`SHA256` vs `sha256`)
+- All functions are sync (same as speakeasy)
+- Zero dependencies vs speakeasy's ~8
+
+### From otplib
+
+| otplib (async) | bun-otp (sync) |
+|----------------|----------------|
+| `await authenticator.generate(secret)` | `totp({ secret })` |
+| `await authenticator.check(token, secret)` | `totp.verify({ secret, token })` |
+| `await totp.generate(secret)` | `totp({ secret })` |
+| `await hotp.generate(secret, counter)` | `hotp({ secret, counter })` |
+
+**Key differences:**
+- No `await` needed — bun-otp is fully synchronous
+- No `.generate()`/`.check()` — use direct function calls
+- Secret passed as object, not positional
+- Zero dependencies vs otplib's ~3
+
+---
+
+## Authenticator App Integration
+
+### Step-by-step enrollment flow
+
+```typescript
+import { generateSecret, totp, generateOTPAuthURI, base32Encode } from '@nds-stack/bun-otp';
+
+// 1. Generate a secret for the user
+const secret = generateSecret();
+
+// 2. Store the secret in your database
+db.users.update(userId, { totpSecret: secret });
+
+// 3. Create an OTP Auth URI for QR code
+const uri = generateOTPAuthURI({
+  type: 'totp',
+  secret,
+  issuer: 'MyApp',
+  accountName: user.email,
+});
+
+// 4. Generate QR code (any QR library)
+// npm install qrcode
+// import QRCode from 'qrcode';
+// const qrImage = await QRCode.toDataURL(uri);
+// Display qrImage to user (HTML: <img src={qrImage} />)
+
+// 5. Verify first token to confirm enrollment
+const firstToken = promptUser('Enter the code from your authenticator app:');
+if (totp.verify({ secret, token: firstToken, window: 2 })) {
+  // ✅ Enrollment confirmed
+} else {
+  // ❌ Wrong code — ask user to try again
+}
+```
+
+### Supported authenticator apps
+
+| App | Platform | OTP URI support |
+|-----|----------|:---------------:|
+| Google Authenticator | iOS, Android | ✅ |
+| Authy | iOS, Android, Desktop | ✅ |
+| Microsoft Authenticator | iOS, Android | ✅ |
+| 1Password | iOS, Android, Desktop | ✅ |
+| Bitwarden | iOS, Android, Desktop | ✅ |
+
+---
+
 ## Customization Guide
 
 ### Custom digits
@@ -244,6 +328,35 @@ const secret = hexToBase32('12345678901234567890abcdef');
 const token = totp({ secret });
 ```
 
+---
+
+### `generateOTPAuthURI(options: OTPAuthURIOptions): string`
+
+Generates an `otpauth://` URI per the [Google Authenticator Key Uri Format](https://github.com/google/google-authenticator/wiki/Key-Uri-Format). Use this to generate QR codes for authenticator app enrollment.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `type` | `'totp' \| 'hotp'` | (required) | OTP type |
+| `secret` | `string` | (required) | Base32-encoded secret |
+| `issuer` | `string` | (required) | Provider or service name |
+| `accountName` | `string` | (required) | User account identifier (email, username) |
+| `algorithm` | `'SHA1' \| 'SHA256' \| 'SHA512'` | `'SHA1'` | HMAC algorithm (omitted if SHA1) |
+| `digits` | `number` | `6` | OTP digits (omitted if 6) |
+| `period` | `number` | `30` | Time step in seconds (TOTP only, omitted if 30) |
+| `counter` | `number` | (required for HOTP) | Initial counter value |
+
+- **Returns:** `string` — `otpauth://totp/...` URI
+
+```typescript
+const uri = generateOTPAuthURI({
+  type: 'totp',
+  secret: 'JBSWY3DPEHPK3PXP',
+  issuer: 'MyApp',
+  accountName: 'user@example.com',
+});
+// → otpauth://totp/MyApp:user%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=MyApp
+```
+
 ### Notes on sync API
 All functions are sync via `Bun.CryptoHasher`. Unlike TOTP libraries built on Web Crypto (which return Promises), `bun-otp` operations complete immediately. This means:
 - No `await` needed anywhere
@@ -258,13 +371,13 @@ All functions are sync via `Bun.CryptoHasher`. Unlike TOTP libraries built on We
 |---------|---------------------|-------------|----------|:-----------------:|
 | Dependencies | **Zero** | ~8 (crypto-js, etc.) | ~3 (thirty-two, etc.) | 2 |
 | Runtime | **Bun** (CryptoHasher) | Node.js | Node.js/universal | Bun/Node/Browser |
-| TypeScript | **First-class** | Community types | Built-in | ❌ None |
+| TypeScript | **First-class** | Community types | Built-in | Partial (untyped) |
 | Bundle size | **~6 KB** | ~50 KB | ~30 KB | ~5 KB |
 | Algorithms | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 |
 | API style | **Sync** (no await) | **Sync** | Sync/Async | Async |
 | Base32 | Custom RFC 4648 | npm (thirty-two) | npm (thirty-two) | npm (base32-decode) |
 | HOTP | ✅ Full support | ✅ Full support | ✅ Full support | ❌ TOTP only |
-| OTP URI | Planned ([0.1.0-beta.0]) | ✅ Built-in | ✅ Built-in | ✅ Built-in |
+| OTP URI | ✅ Implemented | ✅ Built-in | ✅ Built-in | ✅ Built-in |
 
 ---
 
@@ -279,14 +392,16 @@ All functions are sync via `Bun.CryptoHasher`. Unlike TOTP libraries built on We
 
 ### Results (ops/s — higher is better)
 
-| Operation | `bun-otp` | `speakeasy` | `otplib` | `@epic-web/totp` |
-|-----------|:---------:|:-----------:|:--------:|:----------------:|
-| TOTP SHA1 | **148K** 🏆 | 75K | 47K | 22K |
-| TOTP SHA256 | **173K** 🏆 | 91K | 36K | 22K |
-| TOTP verify | **148K** 🏆 | N/A | 60K | 12K |
-| HOTP SHA1 | **209K** 🏆 | 132K | 58K | N/A |
-| Base32 encode | **265K** 🏆 | N/A | N/A | N/A |
-| Base32 decode | **140K** 🏆 | N/A | N/A | N/A |
+| Operation | `bun-otp` | `speakeasy` | `otplib` | `@epic-web/totp` | `otpauth` |
+|-----------|:---------:|:-----------:|:--------:|:----------------:|:---------:|
+| TOTP SHA1 | **196K** 🏆 | 117K | 44K | 19K | 92K |
+| TOTP SHA256 | **179K** 🏆 | 97K | 38K | 20K | 62K |
+| TOTP verify | **160K** 🏆 | N/A | — | 9K | N/A |
+| HOTP SHA1 | **265K** 🏆 | 137K | 57K | N/A | — |
+| Base32 encode | **209K** 🏆 | N/A | N/A | N/A | N/A |
+| Base32 decode | **123K** 🏆 | N/A | N/A | N/A | N/A |
+
+*`otplib` marked as "—" due to API changes in v13. Run `bun test ./bench/otp.bench.ts` on your hardware.*
 
 `bun-otp` is the fastest OTP library on Bun thanks to `Bun.CryptoHasher` (native C++ HMAC, no JS bridge overhead).
 

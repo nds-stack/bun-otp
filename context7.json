@@ -1,7 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "@nds-stack/bun-otp",
-  "description": "Zero-dependency TOTP/HOTP (2FA) for Bun — RFC 6238/4226 compliant, Web Crypto API, no Buffer needed.",
+  "description": "Zero-dependency TOTP/HOTP (2FA) for Bun — RFC 6238/4226 compliant, Bun.CryptoHasher, otpauth:// URI, no Buffer needed.",
   "url": "https://context7.com/nds-stack/bun-otp",
   "public_key": "pk_Zd1vpPPhPhvxg6ZjZWp5g"
 }

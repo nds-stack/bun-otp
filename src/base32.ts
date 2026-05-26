@@ -43,7 +43,10 @@ export function base32Decode(str: string): Uint8Array {
   if (cleaned.length > 1_000_000) {
     throw new RangeError('base32Decode: input exceeds maximum length of 1,000,000 characters');
   }
-  const outLen = Math.ceil(cleaned.length * 5 / 8);
+  if (cleaned.length % 8 !== 0 && ![2, 4, 5, 7].includes(cleaned.length % 8)) {
+    throw new Error('base32Decode: invalid base32 string length');
+  }
+  const outLen = Math.floor(cleaned.length * 5 / 8);
   const out = new Uint8Array(outLen);
   let buffer = 0;
   let bits = 0;
@@ -63,6 +66,10 @@ export function base32Decode(str: string): Uint8Array {
       out[idx++] = (buffer >>> bits) & 0xff;
       buffer = buffer & ((1 << bits) - 1);
     }
+  }
+
+  if (bits > 0 && buffer !== 0) {
+    throw new Error('base32Decode: invalid padding bits');
   }
 
   return out;
