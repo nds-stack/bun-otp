@@ -1,4 +1,4 @@
-import { hotp, hotpCore } from './hotp.js';
+import { hotpCore } from './hotp-core.js';
 import { base32Decode } from './base32.js';
 import { timingSafeEqual } from './timing-safe-equal.js';
 import type { TOTPOptions, TOTPVerifyOptions } from './types.js';
@@ -18,7 +18,7 @@ function validateWindow(win: number, max = 10): void {
   }
 }
 
-async function totpFn(options: TOTPOptions): Promise<string> {
+function totpFn(options: TOTPOptions): string {
   const { secret, period = 30, digits = 6, algorithm = 'SHA1', timestamp } = options;
   validatePeriodAndDigits(period, digits);
   if (timestamp !== undefined && (!Number.isFinite(timestamp) || timestamp < 0)) {
@@ -28,10 +28,10 @@ async function totpFn(options: TOTPOptions): Promise<string> {
   const time = timestamp ?? Date.now();
   const counter = Math.floor(time / 1000 / period);
 
-  return hotp({ secret, counter, digits, algorithm });
+  return hotpCore(base32Decode(secret), counter, digits, algorithm);
 }
 
-async function totpVerify(options: TOTPVerifyOptions): Promise<boolean> {
+function totpVerify(options: TOTPVerifyOptions): boolean {
   const {
     token,
     secret,
@@ -55,8 +55,7 @@ async function totpVerify(options: TOTPVerifyOptions): Promise<boolean> {
   for (let i = -win; i <= win; i++) {
     const checkCounter = counter + i;
     if (checkCounter < 0) continue;
-    const generated = await hotpCore(key, checkCounter, digits, algorithm);
-    if (timingSafeEqual(generated, token)) return true;
+    if (timingSafeEqual(hotpCore(key, checkCounter, digits, algorithm), token)) return true;
   }
   return false;
 }

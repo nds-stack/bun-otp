@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0-alpha.4] — 2026-05-26
+
+### Added
+- Full README rewrite for context7 AI indexing — 9 sections with architecture, all API docs, error table, multi-instance patterns, production examples
+- Benchmark: 5-run average with min/max reporting
+- Base32 decode: max input length guard (1M chars)
+- Base32 decode: pre-allocated Uint8Array (no intermediate array)
+- HOTP verify: counter validation (was missing)
+- `.gitignore`: `bench/Competitor/` entry
+
+### Changed
+- `hotp()` / `totp()` — sync API (no async/await, no Promise wrapping)
+- `hotpCore` moved to `src/hotp-core.ts` (internal, not exported)
+- Counter overflow fix: BigInt in `counterToBytes`
+- Improved `hottest` validation: merge redundant checks
+
+### Fixed
+- Benchmark: sync/async detection restored (was not awaiting Promises)
+- README: stale Web Crypto docs → Bun.CryptoHasher
+- Benchmark: warmup iterations added
+
 ## [0.1.0-alpha.3] — 2026-05-26
 
 ### Changed

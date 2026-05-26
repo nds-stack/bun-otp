@@ -8,5 +8,6 @@ Thumbs.db
 !README.md
 !CHANGELOG.md
 agents/
+bench/Competitor/
 .env
 .env.*
