@@ -51,7 +51,7 @@ Verifies a TOTP token. Accepts all `TOTPOptions` plus:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `token` | `string` | (required) | The token to verify |
-| `window` | `number` | `0` | Verification window (periods before/after) |
+| `window` | `number` | `0` | Verification window (periods before/after, max ±10) |
 
 ### `hotp(options: HOTPOptions): Promise<string>`
 
@@ -71,13 +71,16 @@ Verifies an HOTP token. Accepts all `HOTPOptions` plus:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `token` | `string` | (required) | The token to verify |
-| `window` | `number` | `0` | Look-ahead window (counters ahead to check) |
+| `window` | `number` | `0` | Look-ahead window (counters ahead to check, max 50) |
 
 ## Error Handling
 
 - `generateSecret` — throws if `length` is not a positive integer
 - `totp` / `hotp` — throws if `secret` is not valid base32 (empty or wrong characters)
-- `totp.verify` / `hotp.verify` — returns `false` for invalid tokens or mismatched secrets; throws on invalid base32 input
+- `totp` / `hotp` — throws if `digits` is not 1-10, `counter` is negative, or `period` < 1
+- `totp.verify` / `hotp.verify` — returns `false` for invalid tokens; throws on invalid input or window > max
+- `hotp.verify` — window max 50 (forward only per RFC 4226)
+- `totp.verify` — window max ±10
 - All async operations throw if Web Crypto API is unavailable
 
 ## Limitations
@@ -137,12 +140,14 @@ const token = await totp({ secret });
 | Dependencies | **Zero** | ~8 (crypto-js, etc.) | ~3 (thirty-two, etc.) |
 | Runtime | Bun (Web Crypto) | Node.js | Node.js/universal |
 | TypeScript | **First-class** | Community types | Built-in |
-| Bundle size | **~1 KB gzipped** | ~50 KB | ~30 KB |
+| Bundle size | **~6 KB** | ~50 KB | ~30 KB |
 | Algorithms | SHA1/256/512 | SHA1/256/512 | SHA1/256/512 |
 | Async | **Yes** (Web Crypto) | Sync | Sync/Async |
 | Base32 | Custom RFC 4648 | npm (thirty-two) | npm (thirty-two) |
 
 ## Benchmarks
+
+*Run `bun run bench` to measure on your hardware.*
 
 | Operation | Throughput |
 |-----------|------------|
@@ -154,7 +159,7 @@ const token = await totp({ secret });
 | Base32 encode (64 bytes) | ~5,000,000 ops/s |
 | Base32 decode (104 chars) | ~3,000,000 ops/s |
 
-*Measured on Bun 1.3+ on an M3 MacBook Pro. Results vary by hardware.*
+*Measured on Bun 1.3+ on an M3 MacBook Pro. Results vary by hardware. Baseline benchmark included in suite for comparison.*
 
 ## Real-World Example
 

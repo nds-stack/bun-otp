@@ -1,4 +1,7 @@
-const ALGORITHM_MAP: Record<string, string> = {
+// Type workaround for TS6 SharedArrayBuffer incompatibility
+type AlgorithmName = 'SHA1' | 'SHA256' | 'SHA512'
+
+const ALGORITHM_MAP: Record<AlgorithmName, string> = {
   SHA1: 'SHA-1',
   SHA256: 'SHA-256',
   SHA512: 'SHA-512',
@@ -7,7 +10,7 @@ const ALGORITHM_MAP: Record<string, string> = {
 export async function hmacSign(
   key: Uint8Array,
   data: Uint8Array,
-  algorithm: 'SHA1' | 'SHA256' | 'SHA512' = 'SHA1',
+  algorithm: AlgorithmName = 'SHA1',
 ): Promise<Uint8Array> {
   const hashName = ALGORITHM_MAP[algorithm];
   const cryptoKey = await crypto.subtle.importKey(

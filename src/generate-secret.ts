@@ -1,4 +1,4 @@
-import { base32Encode } from './base32';
+import { base32Encode } from './base32.js';
 
 export function generateSecret(length: number = 20): string {
   if (!Number.isInteger(length) || length < 1) {

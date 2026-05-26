@@ -7,5 +7,6 @@ Thumbs.db
 *.md
 !README.md
 !CHANGELOG.md
-agent/
 agents/
+.env
+.env.*

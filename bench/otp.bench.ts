@@ -1,57 +1,54 @@
-import { bench, describe } from 'bun:test';
-import { hotp, totp, generateSecret, base32Encode, base32Decode } from '../src/index';
+import { describe } from 'bun:test';
+import { hotp, totp, generateSecret, base32Encode, base32Decode } from '../src/index.ts';
 
 const secret = generateSecret();
+const baselineKey = new Uint8Array(20);
+crypto.getRandomValues(baselineKey);
+const baselineData = new Uint8Array(8);
 
-describe('TOTP', () => {
-  bench('generate 6-digit token (SHA1)', async () => {
-    await totp({ secret, timestamp: 0 });
+async function run(label: string, fn: () => Promise<unknown> | unknown, iterations = 1000) {
+  const start = performance.now();
+  for (let i = 0; i < iterations; i++) await fn();
+  const elapsed = performance.now() - start;
+  const opsPerSec = Math.round(iterations / (elapsed / 1000));
+  console.log(`  ${label.padEnd(55)} ${opsPerSec.toLocaleString().padStart(12)} ops/s`);
+}
+
+describe('OTP Benchmarks', async () => {
+  console.log(`\nBenchmark: @nds-stack/bun-otp (1000 iterations each)\n`);
+  console.log('='.repeat(72));
+
+  // Baseline
+  await run('baseline: crypto.subtle.sign (SHA1)', async () => {
+    const k = await crypto.subtle.importKey('raw', baselineKey, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    await crypto.subtle.sign('HMAC', k, baselineData);
   });
 
-  bench('generate 8-digit token (SHA256)', async () => {
-    await totp({ secret, timestamp: 0, digits: 8, algorithm: 'SHA256' });
+  // TOTP
+  await run('totp() 6-digit SHA1', () => totp({ secret, timestamp: 50000 }));
+  await run('totp() 8-digit SHA256', () => totp({ secret, timestamp: 50000, digits: 8, algorithm: 'SHA256' }));
+  await run('totp() 6-digit SHA512', () => totp({ secret, timestamp: 50000, algorithm: 'SHA512' }));
+  await run('totp.verify() window=1', async () => {
+    const token = await totp({ secret, timestamp: 50000 });
+    await totp.verify({ secret, token, timestamp: 50000, window: 1 });
   });
 
-  bench('generate 6-digit token (SHA512)', async () => {
-    await totp({ secret, timestamp: 0, algorithm: 'SHA512' });
-  });
-
-  bench('verify valid token', async () => {
-    const token = await totp({ secret, timestamp: 0 });
-    await totp.verify({ secret, token, timestamp: 0, window: 1 });
-  });
-});
-
-describe('HOTP', () => {
-  bench('generate token (SHA1)', async () => {
-    await hotp({ secret, counter: 0 });
-  });
-
-  bench('verify with window=10', async () => {
+  // HOTP
+  await run('hotp() SHA1', () => hotp({ secret, counter: 0 }));
+  await run('hotp.verify() window=10', async () => {
     const token = await hotp({ secret, counter: 100 });
     await hotp.verify({ secret, counter: 95, token, window: 10 });
   });
-});
 
-describe('Base32', () => {
+  // Base32
   const raw = new Uint8Array(64);
   const encoded = base32Encode(raw);
+  await run('base32Encode(64 bytes)', () => base32Encode(raw));
+  await run('base32Decode(104 chars)', () => base32Decode(encoded));
 
-  bench('encode 64 bytes', () => {
-    base32Encode(raw);
-  });
+  // Secret generation
+  await run('generateSecret(20)', () => generateSecret(20));
+  await run('generateSecret(32)', () => generateSecret(32));
 
-  bench('decode 104 chars', () => {
-    base32Decode(encoded);
-  });
-});
-
-describe('Secret generation', () => {
-  bench('generate 20-byte secret', () => {
-    generateSecret(20);
-  });
-
-  bench('generate 32-byte secret', () => {
-    generateSecret(32);
-  });
+  console.log('='.repeat(72));
 });

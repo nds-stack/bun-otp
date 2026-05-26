@@ -1,4 +1,5 @@
 import { hotp } from './hotp.js';
+import { base32Decode } from './base32.js';
 import { timingSafeEqual } from './timing-safe-equal.js';
 import type { TOTPOptions, TOTPVerifyOptions } from './types.js';
 
@@ -11,9 +12,18 @@ function validatePeriodAndDigits(period: number, digits: number): void {
   }
 }
 
+function validateWindow(win: number, max = 10): void {
+  if (!Number.isInteger(win) || win < 0 || win > max) {
+    throw new RangeError(`window must be 0-${max}, got ${win}`);
+  }
+}
+
 async function totpFn(options: TOTPOptions): Promise<string> {
   const { secret, period = 30, digits = 6, algorithm = 'SHA1', timestamp } = options;
   validatePeriodAndDigits(period, digits);
+  if (timestamp !== undefined && (!Number.isFinite(timestamp) || timestamp < 0)) {
+    throw new RangeError(`TOTP: timestamp must be a non-negative number, got ${timestamp}`);
+  }
 
   const time = timestamp ?? Date.now();
   const counter = Math.floor(time / 1000 / period);
@@ -33,18 +43,18 @@ async function totpVerify(options: TOTPVerifyOptions): Promise<boolean> {
   } = options;
 
   validatePeriodAndDigits(period, digits);
+  validateWindow(win);
+  if (timestamp !== undefined && (!Number.isFinite(timestamp) || timestamp < 0)) {
+    throw new RangeError(`TOTP: timestamp must be a non-negative number, got ${timestamp}`);
+  }
 
   const time = timestamp ?? Date.now();
   const counter = Math.floor(time / 1000 / period);
 
   for (let i = -win; i <= win; i++) {
     const checkCounter = counter + i;
-    const generated = await hotp({
-      secret,
-      counter: checkCounter,
-      digits,
-      algorithm,
-    });
+    if (checkCounter < 0) continue;
+    const generated = await hotp({ secret, counter: checkCounter, digits, algorithm });
     if (timingSafeEqual(generated, token)) return true;
   }
   return false;

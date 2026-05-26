@@ -1,9 +1,8 @@
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
-const ALPHABET_MAP: Record<string, number> = {};
-for (let i = 0; i < ALPHABET.length; i++) {
-  ALPHABET_MAP[ALPHABET[i]] = i;
-}
+const ALPHABET_MAP: Readonly<Record<string, number>> = Object.freeze(
+  Object.fromEntries(ALPHABET.split('').map((c, i) => [c, i])),
+);
 
 export function base32Encode(data: Uint8Array): string {
   const result: string[] = [];
@@ -34,7 +33,13 @@ export function base32Encode(data: Uint8Array): string {
 }
 
 export function base32Decode(str: string): Uint8Array {
+  if (str.length === 0) {
+    throw new Error('base32Decode: empty input');
+  }
   const cleaned = str.replace(/=+$/, '').toUpperCase();
+  if (cleaned.length === 0) {
+    throw new Error('base32Decode: input contains only padding characters');
+  }
   const bytes: number[] = [];
   let buffer = 0;
   let bits = 0;

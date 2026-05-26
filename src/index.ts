@@ -1,4 +1,4 @@
-export { generateSecret } from './generateSecret';
+export { generateSecret } from './generate-secret.js';
 export { totp } from './totp';
 export { hotp } from './hotp';
 export { base32Encode, base32Decode } from './base32';

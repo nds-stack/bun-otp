@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { generateSecret, totp, hotp } from '../src/index';
+import { generateSecret, totp, hotp } from '../src/index.ts';
 
 describe('base32', () => {
   test('generateSecret produces valid base32 string', () => {
@@ -129,5 +129,48 @@ describe('HOTP', () => {
     const token1 = await hotp({ secret, counter: 5 });
     const token2 = await hotp({ secret: 'AAAAAAAAAAAAAAAA', counter: 5 });
     expect(token1).not.toBe(token2);
+  });
+
+  test('RFC 4226 test vectors', async () => {
+    const vectors = [
+      [0, '755224'], [1, '287082'], [2, '359152'],
+      [3, '969429'], [4, '338314'], [5, '254676'],
+      [6, '287922'], [7, '162583'], [8, '399871'],
+      [9, '520489'],
+    ] as const;
+    for (const [counter, expected] of vectors) {
+      const token = await hotp({ secret, counter, digits: 6 });
+      expect(token).toBe(expected);
+    }
+  });
+});
+
+describe('Error handling', () => {
+  test('throws on invalid base32 secret', async () => {
+    expect(hotp({ secret: '!!!!', counter: 0 })).rejects.toThrow();
+  });
+
+  test('throws on negative counter', async () => {
+    expect(hotp({ secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', counter: -1 })).rejects.toThrow();
+  });
+
+  test('throws on digits out of range', async () => {
+    expect(hotp({ secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', counter: 0, digits: 0 })).rejects.toThrow();
+    expect(hotp({ secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', counter: 0, digits: 11 })).rejects.toThrow();
+  });
+
+  test('throws on window exceeding max', async () => {
+    const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+    const token = await hotp({ secret, counter: 0 });
+    expect(hotp.verify({ secret, counter: 0, token, window: 99 })).rejects.toThrow();
+    expect(totp.verify({ secret, token, timestamp: 0, window: 99 })).rejects.toThrow();
+  });
+
+  test('throws on empty secret', async () => {
+    expect(hotp({ secret: '', counter: 0 })).rejects.toThrow();
+  });
+
+  test('throws on NaN timestamp', async () => {
+    expect(totp({ secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', timestamp: NaN })).rejects.toThrow();
   });
 });
