@@ -241,6 +241,7 @@ describe('OTPAuthURI', () => {
   });
 
   test('throws on missing counter for HOTP', () => {
+    // @ts-expect-error — testing runtime validation, counter required for HOTP
     expect(() => generateOTPAuthURI({
       type: 'hotp',
       secret,
