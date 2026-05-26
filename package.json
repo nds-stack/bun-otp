@@ -1,0 +1,28 @@
+{
+  "name": "@nds-stack/bun-otp",
+  "version": "0.1.0-alpha.0",
+  "description": "Zero-dependency TOTP/HOTP (2FA) for Bun — RFC 6238/4226 compliant, Web Crypto API, no Buffer needed.",
+  "author": "nds-stack <nds.stack@gmail.com>",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build": "bun build ./src/index.ts --outdir=./dist --target=bun --format=esm && tsc -p tsconfig.build.json",
+    "bench": "bun run bench/otp.bench.ts",
+    "prepublishOnly": "bun run typecheck && bun test && bun run build"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "license": "MIT"
+}
